@@ -1,0 +1,40 @@
+body {
+    font-family: 'Inter', sans-serif;
+    /* Dark main background color */
+    background-color: #111827; 
+}
+
+.game-cell {
+    transition: all 0.2s ease-in-out;
+}
+
+.game-cell:hover:not(.no-hover) {
+    transform: scale(1.05);
+}
+
+.btn-letter.active {
+    transform: scale(1.1);
+    /* Shadow with the new accent color */
+    box-shadow: 0 0 15px rgba(20, 255, 199, 0.5);
+}
+
+.modal {
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.modal-content {
+    transition: transform 0.3s ease;
+}
+
+.thinking-indicator {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: .5;
+    }
+}
