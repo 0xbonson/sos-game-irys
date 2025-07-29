@@ -29,16 +29,32 @@ let boardSize = 7;
 let gameMode = 'pvc'; // 'pvp' or 'pvc'
 let isComputerThinking = false;
 
-// --- Mock Irys SDK (unchanged) ---
-class MockIrys {
-    constructor(config) { this.config = config; }
-    async upload(data, { tags }) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        const fakeTxId = 'fake-tx-' + Array(43).fill(0).map(() => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'[Math.floor(Math.random() * 64)]).join('');
-        return { id: fakeTxId, timestamp: Date.now() };
+// --- Irys SDK Logic ---
+
+/**
+ * Menginisialisasi dan menghubungkan ke Irys menggunakan wallet browser.
+ * Untuk pengujian, gunakan "devnet". Untuk rilis, gunakan "mainnet".
+ */
+const getIrys = async () => {
+    if (!window.Irys) {
+        throw new Error("Irys Web SDK not found. Please ensure it's loaded.");
     }
-}
-const getIrys = async () => new MockIrys({ network: "mainnet", token: "arweave", key: "--- FAKE WALLET KEY ---" });
+    // Gunakan "devnet" untuk pengujian gratis dengan token faucet
+    const network = "devnet"; 
+    const token = "arweave";
+
+    // Irys SDK akan secara otomatis mencoba terhubung ke wallet yang terpasang (mis. ArConnect)
+    const irys = new window.Irys({
+        network,
+        token,
+    });
+
+    // Memastikan wallet terhubung
+    await irys.ready();
+    console.log("Irys is ready, connected to address:", irys.address);
+    return irys;
+};
+
 
 // --- Game Logic ---
 const initializeGame = () => {
@@ -186,7 +202,7 @@ const endGame = () => {
     modalWinner.textContent = winnerText;
     modalScore.textContent = `Player 1: ${scores[1]} - ${player2FinalName}: ${scores[2]}`;
     immortalizeBtn.disabled = false;
-    immortalizeBtn.textContent = 'Immortalize on Irys (Simulation)';
+    immortalizeBtn.textContent = 'Immortalize on Irys';
     irysReceiptElement.classList.add('hidden');
     modal.classList.remove('invisible', 'opacity-0');
     modalContent.classList.remove('scale-95');
@@ -253,20 +269,27 @@ const findBestMove = (player) => {
 
 const immortalizeGame = async () => {
     immortalizeBtn.disabled = true;
-    immortalizeBtn.textContent = 'Uploading to Irys...';
+    immortalizeBtn.textContent = 'Connecting to wallet...';
+    irysReceiptElement.classList.remove('hidden');
+    irysReceiptElement.innerHTML = `<p class="text-yellow-400">Please approve the connection in your wallet.</p>`;
+
     try {
         const irys = await getIrys();
+        
+        immortalizeBtn.textContent = 'Preparing data...';
         const gameData = { game: "SOS: Irys Immortalized", timestamp: new Date().toISOString(), boardSize, scores, winner: modalWinner.textContent, finalBoard: board.map(row => row.map(cell => cell ? cell.letter : null)) };
         const dataToUpload = JSON.stringify(gameData, null, 2);
         const tags = [{ name: "Content-Type", value: "application/json" }, { name: "App-Name", value: "SOS-Immortalized" }, { name: "Game-Mode", value: gameMode }];
+
+        immortalizeBtn.textContent = 'Uploading to Irys...';
         const receipt = await irys.upload(dataToUpload, { tags });
-        irysReceiptElement.innerHTML = `<p class="font-bold text-emerald-400">✅ Immortalized Successfully (Simulation)!</p><p class="text-slate-300">Transaction ID:</p><a href="https://gateway.irys.xyz/${receipt.id}" target="_blank" class="text-teal-300 break-all hover:underline">${receipt.id}</a>`;
-        irysReceiptElement.classList.remove('hidden');
+        
+        irysReceiptElement.innerHTML = `<p class="font-bold text-emerald-400">✅ Immortalized Successfully!</p><p class="text-slate-300">Transaction ID:</p><a href="https://devnet.irys.xyz/${receipt.id}" target="_blank" class="text-teal-300 break-all hover:underline">${receipt.id}</a>`;
         immortalizeBtn.textContent = 'Immortalized!';
+
     } catch (e) {
-        console.error("Error uploading data: ", e);
-        irysReceiptElement.innerHTML = `<p class="font-bold text-red-400">❌ Upload failed.</p>`;
-        irysReceiptElement.classList.remove('hidden');
+        console.error("Error during immortalization: ", e);
+        irysReceiptElement.innerHTML = `<p class="font-bold text-red-400">❌ Error: ${e.message}</p>`;
         immortalizeBtn.disabled = false;
         immortalizeBtn.textContent = 'Try Again';
     }
@@ -284,3 +307,4 @@ gameModeSelect.addEventListener('change', () => {
 
 // --- Initial Load ---
 window.onload = initializeGame;
+
